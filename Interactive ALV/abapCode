@@ -39,7 +39,7 @@ AT SELECTION-SCREEN.
   ENDIF.
 
 
-end-of-SELECTION.
+
 CLASS generate_alv IMPLEMENTATION.
   METHOD display_report.
 
