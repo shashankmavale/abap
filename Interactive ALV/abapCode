@@ -1,0 +1,92 @@
+*&---------------------------------------------------------------------*
+*& Report ZMM_REPORT
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT zmm_report.
+
+TABLES marc.
+
+DATA : it_marc TYPE STANDARD TABLE OF marc.
+
+SELECTION-SCREEN BEGIN OF BLOCK s_scr WITH FRAME TITLE TEXT-001.
+
+  SELECT-OPTIONS s_plnt FOR marc-werks NO INTERVALS NO-EXTENSION.
+
+SELECTION-SCREEN END OF BLOCK s_scr.
+
+CLASS generate_alv DEFINITION.
+  PUBLIC SECTION.
+    CLASS-METHODS : display_report.
+ENDCLASS.
+
+CLASS second_alv DEFINITION.
+  PUBLIC SECTION.
+    CLASS-METHODS on_click FOR EVENT link_click OF cl_salv_events_table IMPORTING row column.
+ENDCLASS.
+
+
+AT SELECTION-SCREEN.
+  IF s_plnt IS INITIAL.
+    MESSAGE 'Select Plant to view report.' TYPE 'E'.
+  ELSE.
+    SELECT * FROM marc INTO TABLE it_marc WHERE werks IN s_plnt.
+    IF sy-subrc <> 0.
+      MESSAGE 'Please enter correct plant name.' TYPE 'E'.
+    ELSE.
+      generate_alv=>display_report( ).
+    ENDIF.
+  ENDIF.
+
+
+end-of-SELECTION.
+CLASS generate_alv IMPLEMENTATION.
+  METHOD display_report.
+
+    cl_salv_table=>factory(
+      IMPORTING
+        r_salv_table   = DATA(lo_alv)                          " Basis Class Simple ALV Tables
+      CHANGING
+        t_table        = it_marc
+    ).
+    lo_alv->get_columns( )->set_optimize( abap_true ).
+
+    DATA(lo_col) = CAST cl_salv_column_table( lo_alv->get_columns( )->get_column( columnname = 'MATNR' ) ).
+    lo_col->set_cell_type( if_salv_c_cell_type=>hotspot ).
+
+    DATA(lo_evt) = lo_alv->get_event( ).
+    SET HANDLER second_alv=>on_click FOR lo_evt.
+
+    lo_alv->set_screen_status(
+      EXPORTING
+        report        =   sy-repid               " ABAP Program: Current Master Program
+        pfstatus      =   'SALV_STANDARD'               " Screens, Current GUI Status
+        set_functions = lo_alv->c_functions_all " ALV: Data Element for Constants
+    ).
+
+    lo_alv->display( ).
+
+  ENDMETHOD.
+ENDCLASS.
+
+CLASS second_alv IMPLEMENTATION.
+  METHOD on_click.
+    READ TABLE it_marc INTO DATA(wa_marc) INDEX row.
+    SELECT * FROM marc INTO TABLE @DATA(it_marc2) WHERE matnr = @wa_marc-matnr.
+    cl_salv_table=>factory(
+      IMPORTING
+        r_salv_table   =    DATA(lo_alv2)                       " Basis Class Simple ALV Tables
+      CHANGING
+        t_table        = it_marc2
+    ).
+
+    lo_alv2->set_screen_status(
+      EXPORTING
+        report        =   sy-repid               " ABAP Program: Current Master Program
+        pfstatus      =   'SALV_STANDARD'               " Screens, Current GUI Status
+        set_functions = lo_alv2->c_functions_all " ALV: Data Element for Constants
+    ).
+
+    lo_alv2->display( ).
+  ENDMETHOD.
+ENDCLASS.
